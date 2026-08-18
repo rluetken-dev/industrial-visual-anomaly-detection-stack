@@ -58,7 +58,9 @@ These versions provide the verified anomaly-analysis and heatmap contract used b
 - initial documentation set completed;
 - commit message guidelines completed;
 - initial commit `e4967c2` created with message `chore: initialize stack repository`;
-- private GitHub repository created;
+- GitHub repository created and published publicly;
+- public repository access verified without authentication;
+- README and documentation links verified in the public repository;
 - `origin` configured and `main` pushed successfully;
 - local and remote `main` branches verified as synchronized;
 - working tree verified as clean after publication.
@@ -148,7 +150,7 @@ These versions provide the verified anomaly-analysis and heatmap contract used b
 - backend image build included;
 - initial GitHub Actions execution completed successfully;
 - CI intentionally excludes prediction execution because model artifacts and MVTec images are not committed;
-- CI badge rendering verified.
+- CI badge rendering verified in the public README.
 
 ## Current Repository Shape
 
@@ -185,7 +187,6 @@ Local `.env`, model artifact contents, test images, and generated verification o
 
 ## Not Yet Implemented or Verified
 
-- public repository verification;
 - release badge and initial stack release;
 - automated artifact acquisition;
 - distributable test image fixture;
@@ -216,13 +217,11 @@ Local `.env`, model artifact contents, test images, and generated verification o
 
 ## Immediate Next Steps
 
-1. commit and push the verified publication-status update;
-2. confirm that the CI badge renders successfully;
-3. change the GitHub repository visibility to public;
-4. verify documentation links and repository presentation while signed out;
-5. consider an initial stack release and release badge;
-6. remove the temporary clean-clone directory after verification is complete;
-7. evaluate a legally distributable artifact and test-image strategy as a later milestone.
+1. commit and push the public-verification status update;
+2. create the initial stack release;
+3. add and verify the release badge;
+4. remove the temporary clean-clone directory;
+5. evaluate a legally distributable artifact and test-image strategy as a later milestone.
 
 ## Verification Commands
 
