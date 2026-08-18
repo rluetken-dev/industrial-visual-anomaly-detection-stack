@@ -1,6 +1,7 @@
 # Industrial Visual Anomaly Detection Stack
 
 [![CI](https://github.com/rluetken-dev/industrial-visual-anomaly-detection-stack/actions/workflows/ci.yml/badge.svg)](https://github.com/rluetken-dev/industrial-visual-anomaly-detection-stack/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/rluetken-dev/industrial-visual-anomaly-detection-stack)](https://github.com/rluetken-dev/industrial-visual-anomaly-detection-stack/releases/latest)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
 [![Backend](https://img.shields.io/badge/backend-ASP.NET%20Core-512BD4)](https://dotnet.microsoft.com/apps/aspnet)
 [![Inference](https://img.shields.io/badge/inference-Python-3776AB?logo=python&logoColor=white)](https://www.python.org/)
