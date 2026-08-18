@@ -8,13 +8,13 @@ It is intentionally concise. Stable scope belongs in `ProjectSpecification.md`, 
 
 ## Current Phase
 
-**Phase 1 - Repository baseline verified**
+**Phase 1 - Public stack baseline complete**
 
 The Python inference service and ASP.NET Core backend can be built, started, connected, verified, and stopped through Docker Compose. The native WPF desktop client has also been verified against the containerized backend.
 
-The repository has been committed, pushed to a private GitHub repository, validated by GitHub Actions, and verified from a clean clone.
+The repository has been published publicly, validated through GitHub Actions, verified from a clean clone, and released as `v0.1.0`.
 
-The immediate objective is to record this milestone, publish the repository, verify its public presentation, and consider an initial release.
+The initial public stack baseline is complete. Future work can focus on artifact distribution, test fixtures, additional model categories, and deployment options without changing the verified `v0.1.0` baseline.
 
 ## Verified Environment
 
@@ -63,7 +63,9 @@ These versions provide the verified anomaly-analysis and heatmap contract used b
 - README and documentation links verified in the public repository;
 - `origin` configured and `main` pushed successfully;
 - local and remote `main` branches verified as synchronized;
-- working tree verified as clean after publication.
+- working tree verified as clean after publication;
+- initial stack release `v0.1.0` published;
+- release badge added to the README and verified.
 
 ### Inference Container
 
@@ -187,7 +189,6 @@ Local `.env`, model artifact contents, test images, and generated verification o
 
 ## Not Yet Implemented or Verified
 
-- release badge and initial stack release;
 - automated artifact acquisition;
 - distributable test image fixture;
 - multiple model artifacts;
@@ -217,11 +218,10 @@ Local `.env`, model artifact contents, test images, and generated verification o
 
 ## Immediate Next Steps
 
-1. commit and push the public-verification status update;
-2. create the initial stack release;
-3. add and verify the release badge;
-4. remove the temporary clean-clone directory;
-5. evaluate a legally distributable artifact and test-image strategy as a later milestone.
+1. commit and push the final release-status update;
+2. remove the temporary clean-clone directory;
+3. evaluate a legally distributable artifact and test-image strategy as a later milestone;
+4. consider additional model categories without changing the verified `v0.1.0` baseline.
 
 ## Verification Commands
 
