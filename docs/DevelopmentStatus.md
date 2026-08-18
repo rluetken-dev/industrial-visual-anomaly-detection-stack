@@ -8,11 +8,13 @@ It is intentionally concise. Stable scope belongs in `ProjectSpecification.md`, 
 
 ## Current Phase
 
-**Phase 1 - Local stack baseline complete**
+**Phase 1 - Repository baseline verified**
 
-The Python inference service and ASP.NET Core backend can now be built, started, connected, verified, and stopped through Docker Compose. The native WPF desktop client has also been verified against the containerized backend.
+The Python inference service and ASP.NET Core backend can be built, started, connected, verified, and stopped through Docker Compose. The native WPF desktop client has also been verified against the containerized backend.
 
-The immediate objective is to finalize repository checks, create the initial commit, publish the repository, and verify CI.
+The repository has been committed, pushed to a private GitHub repository, validated by GitHub Actions, and verified from a clean clone.
+
+The immediate objective is to record this milestone, publish the repository, verify its public presentation, and consider an initial release.
 
 ## Verified Environment
 
@@ -54,7 +56,12 @@ These versions provide the verified anomaly-analysis and heatmap contract used b
 - `.env.example` created with portable local defaults;
 - local `.env` created and verified as ignored;
 - initial documentation set completed;
-- commit message guidelines completed.
+- commit message guidelines completed;
+- initial commit `e4967c2` created with message `chore: initialize stack repository`;
+- private GitHub repository created;
+- `origin` configured and `main` pushed successfully;
+- local and remote `main` branches verified as synchronized;
+- working tree verified as clean after publication.
 
 ### Inference Container
 
@@ -122,16 +129,26 @@ These versions provide the verified anomaly-analysis and heatmap contract used b
 - verification script syntax validated;
 - health-only script execution verified;
 - full script execution with a local test image verified;
-- temporary verification response cleanup implemented in the verification script.
+- temporary verification response cleanup implemented in the verification script;
+- repository cloned successfully into a separate clean-check directory;
+- `.env.example` copied successfully in the clean clone;
+- clean-clone Compose configuration validated;
+- model artifact copied into the clean clone with matching SHA-256 hashes;
+- copied artifact files verified as ignored by Git;
+- stack started successfully from the clean clone without rebuilding images;
+- clean-clone inference liveness and backend liveness and readiness verified;
+- complete anomaly analysis and PNG heatmap verified from the clean clone.
 
-### CI Foundation
+### CI
 
-- GitHub Actions workflow drafted;
+- GitHub Actions workflow implemented;
 - Compose configuration validation included;
 - PowerShell syntax validation included;
 - inference image build included;
 - backend image build included;
-- CI intentionally excludes prediction execution because model artifacts and MVTec images are not committed.
+- initial GitHub Actions execution completed successfully;
+- CI intentionally excludes prediction execution because model artifacts and MVTec images are not committed;
+- CI badge rendering verified.
 
 ## Current Repository Shape
 
@@ -168,13 +185,8 @@ Local `.env`, model artifact contents, test images, and generated verification o
 
 ## Not Yet Implemented or Verified
 
-- initial Git commit;
-- GitHub repository and remote;
-- CI execution on GitHub Actions;
-- CI badge rendering against a successful GitHub Actions run;
-- release badge and initial stack release;
 - public repository verification;
-- initial stack release;
+- release badge and initial stack release;
 - automated artifact acquisition;
 - distributable test image fixture;
 - multiple model artifacts;
@@ -204,16 +216,13 @@ Local `.env`, model artifact contents, test images, and generated verification o
 
 ## Immediate Next Steps
 
-1. run final Compose, PowerShell, whitespace, and repository-status checks;
-2. confirm that local `.env`, model artifacts, test images, and generated output remain ignored;
-3. stage all intended repository files;
-4. review the staged diff and complete file list;
-5. create the initial commit using `chore: initialize stack repository`;
-6. create the GitHub repository and push `main`;
-7. verify the GitHub Actions workflow;
-8. confirm that the CI badge renders successfully;
-9. verify the published instructions from a clean clone;
-10. consider an initial stack release and release badge after clean-clone verification.
+1. commit and push the verified publication-status update;
+2. confirm that the CI badge renders successfully;
+3. change the GitHub repository visibility to public;
+4. verify documentation links and repository presentation while signed out;
+5. consider an initial stack release and release badge;
+6. remove the temporary clean-clone directory after verification is complete;
+7. evaluate a legally distributable artifact and test-image strategy as a later milestone.
 
 ## Verification Commands
 
