@@ -1,0 +1,47 @@
+services:
+  inference:
+    image: ivad-inference:${INFERENCE_SOURCE_REF}
+    pull_policy: never
+    build:
+      context: .
+      dockerfile: docker/inference/Dockerfile
+      args:
+        INFERENCE_SOURCE_REF: ${INFERENCE_SOURCE_REF}
+    environment:
+      IVAD_MODEL_ARTIFACT: ${MODEL_ARTIFACT_CONTAINER_PATH}
+      IVAD_MEMORY_CHUNK_SIZE: ${INFERENCE_MEMORY_CHUNK_SIZE}
+    ports:
+      - "${INFERENCE_HOST_PORT}:8000"
+    volumes:
+      - type: bind
+        source: ${MODEL_ARTIFACT_HOST_PATH}
+        target: ${MODEL_ARTIFACT_CONTAINER_PATH}
+        read_only: true
+    networks:
+      - application
+
+  backend:
+    image: ivad-backend:${BACKEND_SOURCE_REF}
+    pull_policy: never
+    build:
+      context: .
+      dockerfile: docker/backend/Dockerfile
+      args:
+        BACKEND_SOURCE_REF: ${BACKEND_SOURCE_REF}
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      PythonInference__BaseUrl: http://inference:8000
+      PythonInference__PredictionPath: /api/v1/predictions
+      PythonInference__HealthPath: /health/live
+      PythonInference__TimeoutSeconds: ${INFERENCE_REQUEST_TIMEOUT_SECONDS}
+    ports:
+      - "${BACKEND_HOST_PORT}:8080"
+    depends_on:
+      inference:
+        condition: service_healthy
+    networks:
+      - application
+
+networks:
+  application:
+    driver: bridge

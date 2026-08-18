@@ -1,0 +1,18 @@
+# Use LF for cross-platform Docker and configuration files
+* text=auto eol=lf
+
+# Keep Windows command files native
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pt binary
+*.pth binary
+*.onnx binary
+*.onnx.data binary

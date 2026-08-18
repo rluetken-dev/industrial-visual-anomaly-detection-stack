@@ -1,0 +1,38 @@
+# Local environment configuration
+.env
+.env.*
+!.env.example
+
+# Local model and inference artifacts
+runtime-artifacts/*
+!runtime-artifacts/.gitkeep
+*.pt
+*.pth
+*.onnx
+*.onnx.data
+
+# Local secrets
+secrets/
+*.pem
+*.key
+
+# Runtime and verification output
+outputs/
+logs/
+temp/
+*.log
+
+# Docker Compose local overrides
+compose.override.yml
+compose.override.yaml
+docker-compose.override.yml
+docker-compose.override.yaml
+
+# IDE and operating-system files
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+Thumbs.db
+Desktop.ini
