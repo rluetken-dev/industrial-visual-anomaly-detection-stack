@@ -45,11 +45,11 @@ The WPF application is intentionally not containerized because it is a native Wi
 
 | Component | Release |
 | --- | --- |
-| Python model and inference service | `v0.3.0` |
+| Python model and inference service | `v0.4.0` |
 | ASP.NET Core backend | `v0.2.0` |
 | WPF desktop client | `v0.2.0` |
 
-The baseline supports capsule anomaly classification and an encoded PNG heatmap returned through the complete service chain.
+The verified baseline supports category-neutral anomaly classification and Base64-encoded PNG heatmaps through the complete service chain. It has been verified with both the Capsule reference artifact and a generalized Bottle artifact trained from a normal-image directory.
 
 ## Prerequisites
 
@@ -64,15 +64,19 @@ A Docker Hub account is not required for local use.
 
 ## Model Artifact
 
-The model artifact is not included in Git or in the container images.
+Model artifacts are not included in Git or in the container images.
 
-Prepare the verified artifact according to the [model repository documentation](https://github.com/rluetken-dev/industrial-visual-anomaly-detection-model) and place it under:
+Prepare a compatible artifact according to the [model repository documentation](https://github.com/rluetken-dev/industrial-visual-anomaly-detection-model). Model release `v0.4.0` supports the Capsule reference artifact and compatible artifacts trained from other normal-image directories.
+
+The committed `.env.example` uses this portable default:
 
 ```text
 runtime-artifacts/mvtec-ad-capsule-320/
 ```
 
-The directory is mounted read-only into the inference container.
+Alternatively, the local `.env may` reference an artifact outside this repository, such as an artifact in a neighboring model repository. The configured artifact directory is mounted read-only into the inference container.
+
+The stack supports one configured artifact at a time. Changing it requires updating `.env` and recreating the inference container.
 
 MVTec datasets and test images are not redistributed by this repository.
 
@@ -230,15 +234,18 @@ powershell.exe `
 
 ## Current Scope
 
-The initial stack targets:
+The current stack targets:
 
 - local Docker Desktop execution;
-- one configured capsule model artifact;
+- one configurable model artifact at a time;
+- category-neutral backend and inference integration;
 - CPU inference;
 - a native Windows desktop client;
 - development and portfolio demonstration.
 
-Automatic artifact downloads, multiple runtime models, GPU images, hosted deployment, authentication, TLS termination, and Kubernetes remain outside the initial scope.
+The artifact can be selected through the local `.env` file. Capsule and generalized Bottle artifacts have been verified, but runtime model switching and simultaneous multi-model hosting are not implemented.
+
+Automatic artifact downloads, GPU images, hosted deployment, authentication, TLS termination, container registry publication, and Kubernetes remain outside the current scope.
 
 ## License and Data
 

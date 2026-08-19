@@ -75,9 +75,9 @@ Changes to application behavior remain in the corresponding application reposito
 
 Container builds shall use explicit published repository tags rather than an unpinned default branch.
 
-The initial compatible versions are:
+The verified compatible versions are:
 
-- model and inference service: `v0.3.0`;
+- model and inference service: `v0.4.0`;
 - backend: `v0.2.0`;
 - desktop client: `v0.2.0`.
 
@@ -97,7 +97,9 @@ The artifact:
 - shall be created by following the model repository instructions;
 - shall remain subject to the dataset and model dependency license conditions from which it was produced.
 
-The initial verified artifact is `mvtec-ad-capsule-320`.
+The committed default artifact location targets `mvtec-ad-capsule-320`. The stack shall accept one compatible artifact at a time through configurable host and container paths.
+
+Compatibility has been verified with both the Capsule reference artifact and `mvtec-ad-bottle-generalized-320`. The orchestration layer shall remain category-neutral and shall not hard-code model identity, category, threshold, decision, or heatmap values.
 
 ## Dataset Boundary
 
@@ -194,7 +196,7 @@ The initial orchestration milestone is complete when:
 The following capabilities remain deferred:
 
 - multiple simultaneously loaded model artifacts;
-- dynamic model selection;
+- runtime model or category selection without recreating the inference container;
 - artifact download or publication;
 - dataset download automation;
 - container registries and prebuilt public images;
@@ -210,4 +212,4 @@ Documentation shall be updated after verified stack milestones or compatibility 
 
 ## Last Updated
 
-2026-08-18
+2026-08-19

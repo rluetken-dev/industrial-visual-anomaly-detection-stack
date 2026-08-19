@@ -8,13 +8,15 @@ It is intentionally concise. Stable scope belongs in `ProjectSpecification.md`, 
 
 ## Current Phase
 
-**Phase 1 - Public stack baseline complete**
+**Phase 2 - Generalized artifact compatibility verified**
 
 The Python inference service and ASP.NET Core backend can be built, started, connected, verified, and stopped through Docker Compose. The native WPF desktop client has also been verified against the containerized backend.
 
 The repository has been published publicly, validated through GitHub Actions, verified from a clean clone, and released as `v0.1.0`.
 
-The initial public stack baseline is complete. Future work can focus on artifact distribution, test fixtures, additional model categories, and deployment options without changing the verified `v0.1.0` baseline.
+The stack now uses model and inference release `v0.4.0`. Its configurable read-only artifact mount has been verified with both the Capsule reference artifact and a generalized Bottle artifact created from a normal-image directory.
+
+Normal and anomalous Bottle analyses, including PNG heatmaps, were verified through the complete containerized workflow. This confirms that the stack is not tied to one model category, although runtime model switching and simultaneous multi-model hosting are not yet implemented.
 
 ## Verified Environment
 
@@ -35,11 +37,11 @@ The verified stack baseline uses:
 
 | Component | Release |
 | --- | --- |
-| Python model and inference service | `v0.3.0` |
+| Python model and inference service | `v0.4.0` |
 | ASP.NET Core backend | `v0.2.0` |
 | WPF desktop client | `v0.2.0` |
 
-These versions provide the verified anomaly-analysis and heatmap contract used by the complete local workflow.
+These versions provide the verified anomaly-analysis and heatmap contract used by the complete local workflow. Model release `v0.4.0` additionally supports artifacts trained from user-provided normal-image directories.
 
 ## Implemented
 
@@ -70,7 +72,7 @@ These versions provide the verified anomaly-analysis and heatmap contract used b
 ### Inference Container
 
 - multi-stage Python 3.12 Dockerfile created;
-- model repository source pinned to release `v0.3.0`;
+- model repository source pinned to release `v0.4.0`;
 - declared Python dependencies installed in an isolated virtual environment;
 - application package installed from the pinned source revision;
 - ResNet18 pretrained weights downloaded during the image build;
@@ -83,6 +85,9 @@ These versions provide the verified anomaly-analysis and heatmap contract used b
 - inference image built successfully;
 - offline container startup verified with Docker networking disabled;
 - model artifact mounted and loaded successfully;
+- configurable artifact mount verified with the Capsule reference artifact;
+- generalized Bottle artifact mounted and loaded successfully;
+- model category and threshold obtained dynamically from the selected artifact;
 - model artifact mount verified as read-only;
 - inference health verified.
 
@@ -123,7 +128,11 @@ These versions provide the verified anomaly-analysis and heatmap contract used b
 - backend liveness verified from the Windows host;
 - backend readiness verified from the Windows host;
 - complete image analysis verified through the containerized backend;
-- capsule model identifier and category verified;
+- Capsule reference model identifier and category verified;
+- generalized Bottle model identifier and category verified;
+- normal Bottle image classified as normal through the complete containerized workflow;
+- anomalous Bottle image classified as anomalous through the complete containerized workflow;
+- Bottle-specific threshold obtained from the mounted artifact and verified;
 - anomaly score, threshold, and decision verified;
 - trace identifier verified;
 - Base64-encoded PNG heatmap verified with dimensions `320 x 320`;
@@ -191,8 +200,8 @@ Local `.env`, model artifact contents, test images, and generated verification o
 
 - automated artifact acquisition;
 - distributable test image fixture;
-- multiple model artifacts;
-- dynamic model or category selection;
+- simultaneous hosting of multiple model artifacts;
+- runtime model or category selection without recreating the inference container;
 - GPU-specific images;
 - hosted deployment;
 - production authentication and TLS termination;
@@ -206,11 +215,14 @@ Local `.env`, model artifact contents, test images, and generated verification o
 - The WPF desktop client remains a native Windows application.
 - Docker Compose coordinates the server-side services.
 - Application source revisions are pinned to published tags by default.
-- The verified source tags are model `v0.3.0` and backend `v0.2.0`.
+- The verified source tags are model `v0.4.0` and backend `v0.2.0`.
 - The desktop compatibility baseline is `v0.2.0`.
 - ResNet18 pretrained weights are included in the inference image for offline startup.
 - The exported model artifact remains outside Git and container images.
 - The artifact is mounted read-only into the inference container.
+- The selected artifact is configured through the local `.env` file.
+- Changing the artifact requires recreating the inference container.
+- The stack remains category-neutral and obtains model identity, category, threshold, decision, and heatmap data through the stable service contracts.
 - The backend reaches the inference service through Compose service DNS.
 - The desktop communicates only with the backend host endpoint.
 - MVTec datasets and test images are not redistributed by this repository.
@@ -218,10 +230,12 @@ Local `.env`, model artifact contents, test images, and generated verification o
 
 ## Immediate Next Steps
 
-1. commit and push the final release-status update;
-2. remove the temporary clean-clone directory;
-3. evaluate a legally distributable artifact and test-image strategy as a later milestone;
-4. consider additional model categories without changing the verified `v0.1.0` baseline.
+1. commit and push the model-release and verification-status update;
+2. verify the updated stack configuration through GitHub Actions;
+3. add a concise artifact-selection example to the local quick-start documentation;
+4. evaluate a legally distributable artifact and test-image strategy;
+5. evaluate automated artifact acquisition with checksum verification;
+6. consider runtime model selection only after the single-artifact workflow remains stable.
 
 ## Verification Commands
 
@@ -294,4 +308,4 @@ Update this document after a verified milestone or meaningful group of changes. 
 
 ## Last Updated
 
-2026-08-18
+2026-08-19

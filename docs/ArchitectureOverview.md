@@ -129,7 +129,7 @@ The inference service is reachable by the backend through the internal Compose n
 Initial compatible release:
 
 ```text
-industrial-visual-anomaly-detection-model v0.3.0
+industrial-visual-anomaly-detection-model v0.4.0
 ```
 
 ### Model Artifact
@@ -138,13 +138,17 @@ The model artifact is supplied outside Git and outside the container image.
 
 It is mounted into the inference container as a read-only bind mount. The mount prevents runtime code from modifying the host artifact and keeps large generated files out of repository history and image layers.
 
-The initial stack targets the verified capsule artifact:
+The committed configuration uses the verified Capsule artifact as its portable default:
 
 ```text
 mvtec-ad-capsule-320
 ```
 
-The artifact path is configured by the operator and must exist before the stack starts successfully.
+The artifact path is configured by the operator. A compatible artifact may instead originate from another category or from the generalized normal-image-directory training workflow introduced in model release `v0.4.0`.
+
+The stack has been verified with both the Capsule reference artifact and `mvtec-ad-bottle-generalized-320`. Model identity, category, threshold, decision, and heatmap data flow through the existing service contracts without category-specific stack configuration.
+
+Only one artifact is mounted into an inference container at a time. Changing the selected artifact requires updating the local configuration and recreating the inference container.
 
 ## Build Architecture
 
@@ -154,7 +158,7 @@ The stack uses configurable build arguments with verified release tags as defaul
 
 | Component | Default source revision |
 | --- | --- |
-| Python inference service | `v0.3.0` |
+| Python inference service | `v0.4.0` |
 | ASP.NET Core backend | `v0.2.0` |
 
 The source code is retrieved during the image build. It is not copied into the stack repository.
@@ -274,9 +278,11 @@ The artifact directory is mounted into the inference container with read-only ac
 Conceptually:
 
 ```text
-host runtime-artifacts/mvtec-ad-capsule-320
-    -> container /runtime-artifacts/mvtec-ad-capsule-320:ro
+configured host artifact directory
+    -> configured container artifact directory:ro
 ```
+
+The committed default resolves both sides to `mvtec-ad-capsule-320`. A local `.env` may select another compatible directory, including an artifact outside the stack repository.
 
 The inference configuration points to the container path, never to the Windows host path.
 
@@ -398,7 +404,7 @@ The following remain deferred:
 - container registry publication;
 - automatic model artifact download;
 - multiple simultaneous model artifacts;
-- dynamic category selection;
+- runtime model or category selection without recreating the inference container;
 - GPU-specific images;
 - Kubernetes orchestration;
 - production TLS and authentication;
@@ -417,6 +423,7 @@ The following remain deferred:
 | Route desktop traffic through the backend | Preserve validation, error mapping, and public API ownership |
 | Use internal service DNS | Avoid host-specific addresses between containers |
 | Use health-based dependencies | Distinguish process order from actual readiness |
+| Keep stack integration category-neutral | Allow compatible artifacts to provide their own model identity, category, threshold, decision, and heatmap data |
 
 ## Documentation Update Rule
 
@@ -424,4 +431,4 @@ Update this document when component boundaries, service topology, networking, ar
 
 ## Last Updated
 
-2026-08-18
+2026-08-19

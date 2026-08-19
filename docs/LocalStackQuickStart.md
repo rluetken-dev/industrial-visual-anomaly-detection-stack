@@ -24,15 +24,15 @@ WPF desktop client
 
 ## Compatible Releases
 
-The initial stack configuration targets:
+The verified stack configuration targets:
 
 | Component | Release |
 | --- | --- |
-| Python model and inference service | `v0.3.0` |
+| Python model and inference service | `v0.4.0` |
 | ASP.NET Core backend | `v0.2.0` |
 | WPF desktop client | `v0.2.0` |
 
-Use these versions for the documented baseline before testing newer releases.
+These versions provide the verified anomaly-analysis and heatmap contract. Model release `v0.4.0` supports both the existing Capsule reference artifact and compatible artifacts trained from user-provided normal-image directories.
 
 ## Prerequisites
 
@@ -74,34 +74,56 @@ cd .\industrial-visual-anomaly-detection-stack
 
 The model artifact is intentionally not stored in this repository or inside the container images.
 
-Obtain or export the verified capsule artifact by following the model repository documentation:
+Obtain or export a compatible artifact by following the model repository documentation:
 
 ```text
 https://github.com/rluetken-dev/industrial-visual-anomaly-detection-model
 ```
 
-The initial expected artifact directory is:
+Model release `v0.4.0` supports:
 
-```text
-mvtec-ad-capsule-320
-```
+- the existing MVTec AD Capsule reference artifact;
+- artifacts created from other MVTec AD categories;
+- compatible artifacts trained from user-provided normal-image directories.
 
-Copy the complete artifact directory into:
+A complete artifact directory must contain at least `metadata.json` and `feature_memory.pt`. Generalized artifacts additionally contain `training_split.json`.
 
-```text
-runtime-artifacts/mvtec-ad-capsule-320/
-```
+### Option 1 - Copy the Artifact into the Stack Repository
 
-Expected local shape:
+Copy the complete artifact directory below the ignored `runtime-artifacts` directory:
 
 ```text
 industrial-visual-anomaly-detection-stack/
 `-- runtime-artifacts/
     `-- mvtec-ad-capsule-320/
-        `-- ... complete exported artifact contents ...
+        |-- feature_memory.pt
+        `-- metadata.json
 ```
 
-The artifact directory is ignored by Git. Do not force-add it.
+The committed `.env.example` uses this Capsule location as its portable default:
+
+```dotenv
+MODEL_ARTIFACT_HOST_PATH=./runtime-artifacts/mvtec-ad-capsule-320
+MODEL_ARTIFACT_CONTAINER_PATH=/runtime-artifacts/mvtec-ad-capsule-320
+```
+
+### Option 2 - Reference an Artifact Outside the Stack Repository
+
+A local `.env` may point directly to an artifact exported by a neighboring model repository. For example:
+
+```dotenv
+MODEL_ARTIFACT_HOST_PATH=../industrial-visual-anomaly-detection-model/outputs/model-artifacts/mvtec-ad-bottle-generalized-320
+MODEL_ARTIFACT_CONTAINER_PATH=/runtime-artifacts/mvtec-ad-bottle-generalized-320
+```
+
+Both paths must describe the same artifact:
+
+- `MODEL_ARTIFACT_HOST_PATH` is resolved on the host relative to the stack repository;
+- `MODEL_ARTIFACT_CONTAINER_PATH` is the location used inside the inference container.
+
+The artifact is mounted read-only. Changing either artifact path requires recreating the inference container.
+
+Artifact directories are ignored by Git. Do not force-add them.
 
 MVTec datasets are not required merely to start the stack when a compatible exported artifact and a separate test image are already available.
 
@@ -406,8 +428,9 @@ git diff --check
 
 ## Current Limitations
 
-- the initial runtime supports one configured model artifact;
-- the initial verified artifact category is `capsule`;
+- the runtime supports one configured model artifact at a time;
+- changing the selected artifact requires recreating the inference container;
+- simultaneous multi-model hosting and runtime category selection are not implemented;
 - artifacts are prepared manually;
 - the WPF client is not started by Compose;
 - no GPU-specific runtime is provided;
@@ -421,4 +444,4 @@ git diff --check
 
 ## Last Updated
 
-2026-08-18
+2026-08-19
