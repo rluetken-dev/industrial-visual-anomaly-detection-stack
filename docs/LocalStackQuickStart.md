@@ -2,9 +2,9 @@
 
 ## Purpose
 
-This guide explains how to run the containerized Python inference service and ASP.NET Core backend locally and connect the native Windows desktop client.
+This guide explains how to run the containerized Python inference service and ASP.NET Core backend locally with a registry-controlled set of model artifacts and connect the native Windows desktop client.
 
-The stack is intended for local portfolio demonstration and development. It does not download datasets or model artifacts automatically.
+The stack is intended for local portfolio demonstration and development. It does not download datasets, registries, or model artifacts automatically.
 
 ## What Runs Where
 
@@ -19,20 +19,28 @@ The WPF desktop client runs natively on Windows outside Docker.
 WPF desktop client
     -> ASP.NET Core backend container
         -> Python inference container
-            -> read-only model artifact
+            -> read-only model registry
+                -> multiple read-only model artifacts
 ```
 
-## Compatible Releases
+## Integration Baseline
 
-The verified stack configuration targets:
+The current multi-model integration is verified against these temporary development references:
 
-| Component | Release |
-| --- | --- |
-| Python model and inference service | `v0.4.0` |
-| ASP.NET Core backend | `v0.2.0` |
-| WPF desktop client | `v0.2.0` |
+| Component | Source reference | Local image tag |
+| --- | --- | --- |
+| Python model and inference service | `main` | `multi-model-support` |
+| ASP.NET Core backend | `feat/multi-model-support` | `multi-model-support` |
 
-These versions provide the verified anomaly-analysis and heatmap contract. Model release `v0.4.0` supports both the existing Capsule reference artifact and compatible artifacts trained from user-provided normal-image directories.
+Replace these development references with fixed version tags after the coordinated releases.
+
+The verified integration supports:
+
+- runtime model-catalog discovery;
+- a configured default model;
+- optional explicit `modelId` selection per analysis;
+- simultaneous hosting of Capsule, Bottle, VisA Candle, and VisA Cashew artifacts;
+- Base64-encoded PNG heatmaps through the complete service chain.
 
 ## Prerequisites
 
@@ -42,8 +50,8 @@ Install or prepare:
 - WSL 2;
 - Docker Desktop using Linux containers and the WSL 2 backend;
 - Git;
-- a compatible exported model artifact;
-- optionally, the released WPF desktop client or its source repository.
+- a compatible model registry and all referenced model artifacts;
+- optionally, the native WPF desktop client or its source repository.
 
 A Docker Hub account is not required for the initial local workflow.
 
@@ -70,62 +78,85 @@ git clone https://github.com/rluetken-dev/industrial-visual-anomaly-detection-st
 cd .\industrial-visual-anomaly-detection-stack
 ```
 
-## Prepare the Model Artifact
+## Prepare the Model Registry and Artifacts
 
-The model artifact is intentionally not stored in this repository or inside the container images.
+The model registry and model artifacts are intentionally not stored in this repository or inside the container images.
 
-Obtain or export a compatible artifact by following the model repository documentation:
+Obtain or export compatible artifacts by following the model repository documentation:
 
 ```text
 https://github.com/rluetken-dev/industrial-visual-anomaly-detection-model
 ```
 
-Model release `v0.4.0` supports:
+A complete artifact directory contains at least:
 
-- the existing MVTec AD Capsule reference artifact;
-- artifacts created from other MVTec AD categories;
-- compatible artifacts trained from user-provided normal-image directories.
+- `metadata.json`;
+- `feature_memory.pt`.
 
-A complete artifact directory must contain at least `metadata.json` and `feature_memory.pt`. Generalized artifacts additionally contain `training_split.json`.
+Generalized artifacts additionally contain `training_split.json`.
 
-### Option 1 - Copy the Artifact into the Stack Repository
+The registry file contains:
 
-Copy the complete artifact directory below the ignored `runtime-artifacts` directory:
+- a schema version;
+- the default model identifier;
+- each model identifier and display name;
+- an artifact directory relative to the registry;
+- an enabled flag.
+
+### Option 1 - Copy Registry and Artifacts into the Stack Repository
+
+Copy `models.json` and every referenced artifact directory below the ignored `runtime-artifacts` directory:
 
 ```text
 industrial-visual-anomaly-detection-stack/
 `-- runtime-artifacts/
-    `-- mvtec-ad-capsule-320/
+    |-- models.json
+    |-- mvtec-ad-capsule-320/
+    |   |-- feature_memory.pt
+    |   `-- metadata.json
+    |-- mvtec-ad-bottle-generalized-320/
+    |   |-- feature_memory.pt
+    |   |-- metadata.json
+    |   `-- training_split.json
+    |-- visa-candle-generalized-q95-320/
+    |   |-- feature_memory.pt
+    |   |-- metadata.json
+    |   `-- training_split.json
+    `-- visa-cashew-generalized-q95-320/
         |-- feature_memory.pt
-        `-- metadata.json
+        |-- metadata.json
+        `-- training_split.json
 ```
 
-The committed `.env.example` uses this Capsule location as its portable default:
+The committed `.env.example` uses this portable configuration:
 
 ```dotenv
-MODEL_ARTIFACT_HOST_PATH=./runtime-artifacts/mvtec-ad-capsule-320
-MODEL_ARTIFACT_CONTAINER_PATH=/runtime-artifacts/mvtec-ad-capsule-320
+MODEL_ARTIFACTS_HOST_PATH=./runtime-artifacts
+MODEL_ARTIFACTS_CONTAINER_PATH=/runtime-artifacts
+MODEL_REGISTRY_CONTAINER_PATH=/runtime-artifacts/models.json
 ```
 
-### Option 2 - Reference an Artifact Outside the Stack Repository
+### Option 2 - Reference Model Repository Outputs
 
-A local `.env` may point directly to an artifact exported by a neighboring model repository. For example:
+A local `.env` may point directly to the artifact output directory of a neighboring model repository:
 
 ```dotenv
-MODEL_ARTIFACT_HOST_PATH=../industrial-visual-anomaly-detection-model/outputs/model-artifacts/mvtec-ad-bottle-generalized-320
-MODEL_ARTIFACT_CONTAINER_PATH=/runtime-artifacts/mvtec-ad-bottle-generalized-320
+MODEL_ARTIFACTS_HOST_PATH=../industrial-visual-anomaly-detection-model/outputs/model-artifacts
+MODEL_ARTIFACTS_CONTAINER_PATH=/runtime-artifacts
+MODEL_REGISTRY_CONTAINER_PATH=/runtime-artifacts/models.json
 ```
 
-Both paths must describe the same artifact:
+The variables have these responsibilities:
 
-- `MODEL_ARTIFACT_HOST_PATH` is resolved on the host relative to the stack repository;
-- `MODEL_ARTIFACT_CONTAINER_PATH` is the location used inside the inference container.
+- `MODEL_ARTIFACTS_HOST_PATH` is resolved by Docker Compose on the host;
+- `MODEL_ARTIFACTS_CONTAINER_PATH` is the read-only parent directory inside the inference container;
+- `MODEL_REGISTRY_CONTAINER_PATH` identifies `models.json` inside that mounted directory.
 
-The artifact is mounted read-only. Changing either artifact path requires recreating the inference container.
+Registry artifact paths are resolved relative to `models.json`. The whole directory is mounted read-only. Changing registry contents or artifact files requires recreating the inference container because enabled models are loaded during startup.
 
-Artifact directories are ignored by Git. Do not force-add them.
+Registry and artifact directories are ignored by Git. Do not force-add them.
 
-MVTec datasets are not required merely to start the stack when a compatible exported artifact and a separate test image are already available.
+MVTec and VisA datasets are not required merely to start the stack when compatible exported artifacts and separate test images are already available.
 
 ## Create Local Configuration
 
@@ -137,14 +168,15 @@ Copy-Item .\.env.example .\.env
 
 Open `.env` and review the documented values.
 
-The initial configuration covers:
+The configuration covers:
 
-- backend host port;
-- optional inference diagnostic port;
-- model artifact location;
-- inference memory chunk size;
-- pinned backend source revision;
-- pinned inference source revision.
+- backend and inference host ports;
+- model registry and artifact locations;
+- inference memory chunk size and request timeout;
+- backend and inference Git source references;
+- local Docker image tags, which are separate from source references.
+
+The separation allows a source branch such as `feat/multi-model-support` to use a Docker-compatible image tag without `/`.
 
 Do not commit `.env`.
 
@@ -153,10 +185,10 @@ Do not commit `.env`.
 Run:
 
 ```powershell
-docker compose config
+docker compose config --quiet
 ```
 
-This resolves the environment values and validates the Compose structure without starting containers.
+No output and exit code `0` indicate a valid configuration.
 
 Stop here if Docker reports a missing variable, invalid mount, or invalid Compose configuration.
 
@@ -166,9 +198,9 @@ Stop here if Docker reports a missing variable, invalid mount, or invalid Compos
 docker compose build
 ```
 
-The initial build retrieves the pinned application source revisions and creates the inference and backend runtime images. It can take several minutes and requires internet access.
+The initial build retrieves the configured application source references and creates the inference and backend runtime images. It can take several minutes and requires internet access.
 
-The model artifact is mounted at runtime and is not copied into either image.
+The registry and model artifacts are mounted at runtime and are not copied into either image.
 
 ## Start the Stack
 
@@ -182,7 +214,7 @@ Inspect service state:
 docker compose ps
 ```
 
-The inference service may need additional startup time while loading the artifact. The backend becomes ready only after the inference service is usable.
+The inference service loads all enabled model artifacts during startup. Startup duration and memory consumption increase with the number and size of enabled artifacts. The backend starts only after the inference service reports healthy.
 
 ## Inspect Startup Logs
 
@@ -205,7 +237,7 @@ docker compose logs inference
 docker compose logs backend
 ```
 
-Press `Ctrl+C` to stop following logs. This does not stop containers started with `-d`.
+Press `Ctrl+C` to stop following logs. This does not stop containers started with `--detach`.
 
 ## Verify Service Health
 
@@ -229,7 +261,7 @@ Expected readiness result:
 {"status":"ready"}
 ```
 
-If the optional inference diagnostic port is published, verify it directly:
+If the inference diagnostic port is published, verify it directly:
 
 ```powershell
 curl.exe --max-time 10 -i http://localhost:8000/health/live
@@ -237,23 +269,57 @@ curl.exe --max-time 10 -i http://localhost:8000/health/live
 
 Backend readiness is the authoritative check for whether the complete server-side workflow is available.
 
+## Verify the Model Catalog
+
+Query the public backend endpoint:
+
+```powershell
+Invoke-RestMethod `
+    -Uri http://localhost:8080/api/v1/models `
+    -Method Get |
+    ConvertTo-Json -Depth 5
+```
+
+The response contains:
+
+- `defaultModelId`;
+- the ordered enabled model list;
+- display name and category for each model;
+- input size;
+- default-model marker.
+
+The verified four-model registry returns:
+
+- `mvtec-ad-capsule-320`;
+- `mvtec-ad-bottle-generalized-320`;
+- `visa-candle-generalized-q95-320`;
+- `visa-cashew-generalized-q95-320`.
+
 ## Verify an Analysis
 
-Supply a local PNG or JPEG image. The image is not added to the repository.
+Supply a local PNG or JPEG image and a model identifier from the catalog. The image is not added to the repository.
+
+Windows PowerShell 5.1 does not support `Invoke-RestMethod -Form`, so use `curl.exe`:
 
 ```powershell
 $imagePath = "C:\path\to\test-image.png"
 
 curl.exe `
     --max-time 60 `
-    -X POST `
-    http://localhost:8080/api/v1/analyses `
-    -F "image=@$imagePath;type=image/png"
+    --silent `
+    --show-error `
+    --fail-with-body `
+    --request POST `
+    --form "image=@$imagePath;type=image/png" `
+    --form "modelId=mvtec-ad-capsule-320" `
+    http://localhost:8080/api/v1/analyses
 ```
 
-The response should contain:
+Omit the `modelId` form field to use the registry default model.
 
-- model identifier and category;
+The response contains:
+
+- selected model identifier and category;
 - anomaly score;
 - threshold;
 - `normal` or `anomalous` decision;
@@ -261,7 +327,7 @@ The response should contain:
 - trace identifier;
 - PNG heatmap metadata and Base64 data.
 
-The stack does not provide MVTec test images because dataset redistribution and licensing must remain explicit.
+The stack does not provide MVTec or VisA test images because dataset redistribution and licensing must remain explicit.
 
 ## Run the Verification Script
 
@@ -274,21 +340,32 @@ powershell.exe `
     -File .\scripts\verify-local-stack.ps1
 ```
 
-Verify the complete analysis workflow with a local image:
+Verify the complete analysis workflow and selected model:
 
 ```powershell
 powershell.exe `
     -NoProfile `
     -ExecutionPolicy Bypass `
     -File .\scripts\verify-local-stack.ps1 `
-    -ImagePath "C:\path\to\test-image.png"
+    -ImagePath "C:\path\to\test-image.png" `
+    -ModelId "mvtec-ad-capsule-320"
 ```
 
-The script validates backend and inference health and, when an image is supplied, the analysis result and decoded PNG heatmap.
+The temporary `-ExecutionPolicy Bypass` applies only to this PowerShell process and does not change the system-wide policy.
+
+The script validates:
+
+- inference liveness;
+- backend liveness and readiness;
+- successful analysis response;
+- requested model identifier;
+- category and supported decision;
+- PNG heatmap metadata;
+- valid, non-empty Base64 heatmap data.
 
 ## Run the Desktop Client
 
-Clone or obtain the compatible desktop release separately:
+Clone or obtain the compatible desktop client separately:
 
 ```text
 https://github.com/rluetken-dev/industrial-visual-anomaly-detection-desktop
@@ -314,11 +391,16 @@ dotnet run `
 Remove-Item Env:\Backend__BaseAddress
 ```
 
-The environment variable is removed after the desktop application is closed.
+The environment variable is removed after the desktop application closes.
 
-Start the WPF client natively on Windows. The status indicators should report a healthy backend and ready inference service.
+The desktop client should:
 
-Select a PNG or JPEG image and run the analysis. The client should display the decision, score, threshold, metadata, and interactive heatmap overlay.
+- report a healthy backend and ready inference service;
+- load the enabled model catalog;
+- preselect the registry default model;
+- allow model selection through the combobox;
+- send the selected model identifier with each analysis;
+- display decision, score, threshold, model metadata, and interactive heatmap overlay.
 
 ## Stop the Stack
 
@@ -330,18 +412,25 @@ Set-Location C:\path\to\industrial-visual-anomaly-detection-stack
 docker compose down
 ```
 
-This stops and removes the Compose containers and network. It does not delete the host model artifact or the locally built container images.
+This stops and removes the Compose containers and network. It does not delete the host registry, model artifacts, or locally built container images.
 
-## Rebuild After a Version Change
+## Rebuild After a Source or Registry Change
 
-After changing a pinned source revision or Dockerfile:
+After changing a source reference or Dockerfile:
 
 ```powershell
-docker compose build --no-cache
-docker compose up -d
+docker compose build
+docker compose up --detach
 ```
 
-Use the verified default tags again if a newer combination has not yet been confirmed compatible.
+After changing only registry contents or artifacts:
+
+```powershell
+docker compose up --detach --force-recreate inference
+docker compose up --detach backend
+```
+
+Use fixed release tags after the coordinated releases have been verified.
 
 ## Common Problems
 
@@ -357,9 +446,18 @@ Start Docker Desktop and wait until the engine is running, then retry:
 docker info
 ```
 
-### Artifact Path Does Not Exist
+### Registry or Artifact Path Does Not Exist
 
-Confirm that the complete exported directory exists below `runtime-artifacts` and that `.env` refers to the correct relative path.
+Confirm that:
+
+- `MODEL_ARTIFACTS_HOST_PATH` points to the parent directory containing `models.json`;
+- `MODEL_REGISTRY_CONTAINER_PATH` points to the registry inside the mounted container directory;
+- every enabled `artifactDirectory` exists relative to `models.json`;
+- every artifact contains `metadata.json` and `feature_memory.pt`.
+
+### Inference Service Requires `IVAD_MODEL_ARTIFACT`
+
+The configured inference source is too old and does not support registry mode. Use a source reference containing the configurable model-registry implementation, rebuild the inference image, and recreate the container.
 
 ### Inference Container Is Unhealthy
 
@@ -371,10 +469,13 @@ docker compose logs inference
 
 Typical causes include:
 
-- missing artifact files;
+- missing registry or artifact files;
+- invalid registry JSON;
+- a duplicate or missing model identifier;
+- an invalid default-model reference;
 - incompatible artifact metadata;
 - insufficient available memory;
-- invalid artifact mount configuration.
+- invalid read-only mount configuration.
 
 ### Backend Is Live but Not Ready
 
@@ -388,6 +489,17 @@ docker compose logs inference
 
 This usually means that the backend process is running but cannot reach a healthy inference service.
 
+### Model Catalog Returns Service Unavailable
+
+Check the backend and inference logs and query the inference catalog directly:
+
+```powershell
+Invoke-RestMethod `
+    -Uri http://localhost:8000/api/v1/models `
+    -Method Get |
+    ConvertTo-Json -Depth 5
+```
+
 ### Desktop Cannot Reach the Backend
 
 Confirm that:
@@ -399,12 +511,12 @@ Confirm that:
 
 ### Port Is Already in Use
 
-Change the relevant host port in `.env`, validate the resolved configuration, and restart the stack:
+Stop native model or backend processes that use the same ports, or change the relevant host port in `.env`. Then validate and restart:
 
 ```powershell
-docker compose config
+docker compose config --quiet
 docker compose down
-docker compose up -d
+docker compose up --detach
 ```
 
 ## Local Data Rules
@@ -412,8 +524,8 @@ docker compose up -d
 Do not commit:
 
 - `.env`;
-- model artifacts;
-- MVTec datasets;
+- model registries and artifacts;
+- MVTec or VisA datasets;
 - uploaded or test images;
 - generated heatmaps;
 - logs;
@@ -428,20 +540,20 @@ git diff --check
 
 ## Current Limitations
 
-- the runtime supports one configured model artifact at a time;
-- changing the selected artifact requires recreating the inference container;
-- simultaneous multi-model hosting and runtime category selection are not implemented;
-- artifacts are prepared manually;
+- registries and artifacts are prepared manually;
+- changing registry contents requires recreating the inference container;
+- every enabled model is loaded during startup and consumes memory;
 - the WPF client is not started by Compose;
+- free-form artifact upload from the desktop is outside the MVP;
 - no GPU-specific runtime is provided;
 - the stack is intended for local use rather than production deployment.
 
 ## Related Documentation
 
 - `ProjectSpecification.md` - scope and acceptance criteria;
-- `ArchitectureOverview.md` - component, network, build, and artifact architecture;
+- `ArchitectureOverview.md` - component, network, build, registry, and artifact architecture;
 - `DevelopmentStatus.md` - verified progress and immediate next steps.
 
 ## Last Updated
 
-2026-08-19
+2026-08-21

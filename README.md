@@ -13,13 +13,13 @@ The stack runs the Python inference service and ASP.NET Core backend together wh
 
 ## Overview
 
-The complete workflow consists of three independently released projects:
+The complete workflow consists of three independently maintained application projects:
 
-- [Industrial Visual Anomaly Detection Model](https://github.com/rluetken-dev/industrial-visual-anomaly-detection-model) - Python model development, artifact export, inference, and heatmap generation;
-- [Industrial Visual Anomaly Detection Backend](https://github.com/rluetken-dev/industrial-visual-anomaly-detection-backend) - ASP.NET Core API, validation, health checks, and inference integration;
-- [Industrial Visual Anomaly Detection Desktop](https://github.com/rluetken-dev/industrial-visual-anomaly-detection-desktop) - native WPF analysis client with an interactive heatmap overlay.
+- [Industrial Visual Anomaly Detection Model](https://github.com/rluetken-dev/industrial-visual-anomaly-detection-model) - Python model development, artifact export, registry-based inference, and heatmap generation;
+- [Industrial Visual Anomaly Detection Backend](https://github.com/rluetken-dev/industrial-visual-anomaly-detection-backend) - ASP.NET Core API, validation, model-catalog forwarding, health checks, and inference integration;
+- [Industrial Visual Anomaly Detection Desktop](https://github.com/rluetken-dev/industrial-visual-anomaly-detection-desktop) - native WPF analysis client with dynamic model selection and an interactive heatmap overlay.
 
-This repository adds the missing orchestration layer without duplicating application source code.
+This repository adds the orchestration layer without duplicating application source code.
 
 ## Architecture
 
@@ -27,29 +27,40 @@ This repository adds the missing orchestration layer without duplicating applica
 Native Windows WPF client
     -> ASP.NET Core backend container
         -> Python inference container
-            -> read-only model artifact
+            -> read-only model registry
+                -> multiple read-only model artifacts
 ```
 
 Docker Compose provides:
 
-- reproducible image builds from pinned releases;
+- reproducible image builds from configurable Git references;
+- separate source references and local image tags;
 - an internal service network;
 - health-based startup dependencies;
 - portable environment configuration;
-- a read-only model artifact mount;
+- one read-only mount containing the registry and its model artifacts;
 - a single server-side startup and shutdown workflow.
 
 The WPF application is intentionally not containerized because it is a native Windows desktop application.
 
-## Compatible Baseline
+## Integration Baseline
 
-| Component | Release |
-| --- | --- |
-| Python model and inference service | `v0.4.0` |
-| ASP.NET Core backend | `v0.2.0` |
-| WPF desktop client | `v0.2.0` |
+The current multi-model integration is verified against these development references:
 
-The verified baseline supports category-neutral anomaly classification and Base64-encoded PNG heatmaps through the complete service chain. It has been verified with both the Capsule reference artifact and a generalized Bottle artifact trained from a normal-image directory.
+| Component | Source reference | Local image tag |
+| --- | --- | --- |
+| Python model and inference service | `main` | `multi-model-support` |
+| ASP.NET Core backend | `feat/multi-model-support` | `multi-model-support` |
+
+These development references are temporary. Replace them with fixed release versions after the coordinated model, backend, desktop, and stack releases.
+
+The verified integration supports:
+
+- a runtime model catalog;
+- an explicit optional `modelId` per analysis request;
+- a configured default model when `modelId` is omitted;
+- Base64-encoded PNG heatmaps;
+- simultaneous hosting of Capsule, Bottle, VisA Candle, and VisA Cashew artifacts.
 
 ## Prerequisites
 
@@ -57,32 +68,86 @@ The verified baseline supports category-neutral anomaly classification and Base6
 - WSL 2;
 - Docker Desktop using Linux containers;
 - Git;
-- a compatible exported model artifact;
+- a compatible model registry and its referenced model artifacts;
 - optionally, the native WPF desktop client.
 
 A Docker Hub account is not required for local use.
 
-## Model Artifact
+## Model Registry and Artifacts
 
-Model artifacts are not included in Git or in the container images.
+Model registries, model artifacts, datasets, and test images are not included in Git or in the container images.
 
-Prepare a compatible artifact according to the [model repository documentation](https://github.com/rluetken-dev/industrial-visual-anomaly-detection-model). Model release `v0.4.0` supports the Capsule reference artifact and compatible artifacts trained from other normal-image directories.
-
-The committed `.env.example` uses this portable default:
+Prepare compatible artifacts according to the [model repository documentation](https://github.com/rluetken-dev/industrial-visual-anomaly-detection-model). Place the registry and all referenced artifact directories below one host directory:
 
 ```text
-runtime-artifacts/mvtec-ad-capsule-320/
+runtime-artifacts/
+|-- models.json
+|-- mvtec-ad-capsule-320/
+|-- mvtec-ad-bottle-generalized-320/
+|-- visa-candle-generalized-q95-320/
+`-- visa-cashew-generalized-q95-320/
 ```
 
-Alternatively, the local `.env may` reference an artifact outside this repository, such as an artifact in a neighboring model repository. The configured artifact directory is mounted read-only into the inference container.
+Example `models.json`:
 
-The stack supports one configured artifact at a time. Changing it requires updating `.env` and recreating the inference container.
+```json
+{
+  "schemaVersion": 1,
+  "defaultModelId": "mvtec-ad-capsule-320",
+  "models": [
+    {
+      "id": "mvtec-ad-capsule-320",
+      "displayName": "MVTec AD - Capsule",
+      "artifactDirectory": "mvtec-ad-capsule-320",
+      "enabled": true
+    },
+    {
+      "id": "mvtec-ad-bottle-generalized-320",
+      "displayName": "MVTec AD - Bottle",
+      "artifactDirectory": "mvtec-ad-bottle-generalized-320",
+      "enabled": true
+    },
+    {
+      "id": "visa-candle-generalized-q95-320",
+      "displayName": "VisA - Candle",
+      "artifactDirectory": "visa-candle-generalized-q95-320",
+      "enabled": true
+    },
+    {
+      "id": "visa-cashew-generalized-q95-320",
+      "displayName": "VisA - Cashew",
+      "artifactDirectory": "visa-cashew-generalized-q95-320",
+      "enabled": true
+    }
+  ]
+}
+```
 
-MVTec datasets and test images are not redistributed by this repository.
+The committed `.env.example` uses this portable host directory:
+
+```dotenv
+MODEL_ARTIFACTS_HOST_PATH=./runtime-artifacts
+MODEL_ARTIFACTS_CONTAINER_PATH=/runtime-artifacts
+MODEL_REGISTRY_CONTAINER_PATH=/runtime-artifacts/models.json
+```
+
+A local ignored `.env` may instead reference the output directory of a neighboring model repository:
+
+```dotenv
+MODEL_ARTIFACTS_HOST_PATH=../industrial-visual-anomaly-detection-model/outputs/model-artifacts
+MODEL_ARTIFACTS_CONTAINER_PATH=/runtime-artifacts
+MODEL_REGISTRY_CONTAINER_PATH=/runtime-artifacts/models.json
+```
+
+The entire host directory is mounted read-only. Registry artifact paths are resolved relative to `models.json`. Changing the registry or its artifacts requires recreating the inference container so all enabled models are loaded during startup.
+
+Loading additional models increases inference-container startup time and memory usage. Each current feature-memory artifact is approximately 410 MiB before runtime overhead.
+
+MVTec and VisA datasets are not redistributed by this repository.
 
 ## Quick Start
 
-After cloning the repository and preparing the artifact:
+After cloning the repository and preparing the registry and artifacts:
 
 ```powershell
 Copy-Item .\.env.example .\.env
@@ -104,19 +169,34 @@ Expected response:
 {"status":"ready"}
 ```
 
+Verify the public model catalog:
+
+```powershell
+Invoke-RestMethod `
+    -Uri http://localhost:8080/api/v1/models `
+    -Method Get |
+    ConvertTo-Json -Depth 5
+```
+
 For artifact preparation, configuration, analysis verification, desktop setup, and troubleshooting, see [Local Stack Quick Start](docs/LocalStackQuickStart.md).
 
 ## Run an Analysis
+
+Select one model identifier from `GET /api/v1/models` and send it as an optional multipart field:
 
 ```powershell
 $imagePath = "C:\path\to\test-image.png"
 
 curl.exe `
     --max-time 60 `
-    -X POST `
-    http://localhost:8080/api/v1/analyses `
-    -F "image=@$imagePath;type=image/png"
+    --fail-with-body `
+    --request POST `
+    --form "image=@$imagePath;type=image/png" `
+    --form "modelId=mvtec-ad-capsule-320" `
+    http://localhost:8080/api/v1/analyses
 ```
+
+When `modelId` is omitted, the inference service uses the registry default model.
 
 The response includes:
 
@@ -134,7 +214,13 @@ Run the [WPF desktop client](https://github.com/rluetken-dev/industrial-visual-a
 http://localhost:8080
 ```
 
-The desktop client displays backend and inference status, the selected image, analysis metadata, and an adjustable heatmap overlay.
+The desktop client:
+
+- loads the model catalog dynamically from the backend;
+- preselects the configured default model;
+- allows the user to select any enabled model;
+- sends the selected model identifier with the image;
+- displays backend and inference status, analysis metadata, and an adjustable heatmap overlay.
 
 ## Stop the Stack
 
@@ -142,7 +228,7 @@ The desktop client displays backend and inference status, the selected image, an
 docker compose down
 ```
 
-This removes the Compose containers and network without deleting the host model artifact.
+This removes the Compose containers and network without deleting the host registry or model artifacts.
 
 ## Repository Structure
 
@@ -182,7 +268,7 @@ Application source code remains in the three owning repositories and is not copi
 Validate configuration:
 
 ```powershell
-docker compose config
+docker compose config --quiet
 ```
 
 Build images:
@@ -205,7 +291,7 @@ git diff --check
 git status --short --untracked-files=all
 ```
 
-Verify the running stack:
+Verify health and readiness without an analysis image:
 
 ```powershell
 powershell.exe `
@@ -214,15 +300,20 @@ powershell.exe `
     -File .\scripts\verify-local-stack.ps1
 ```
 
-Verify the complete analysis workflow:
+Verify the complete analysis workflow and requested model selection:
 
 ```powershell
 powershell.exe `
     -NoProfile `
     -ExecutionPolicy Bypass `
     -File .\scripts\verify-local-stack.ps1 `
-    -ImagePath "C:\path\to\test-image.png"
+    -ImagePath "C:\path\to\test-image.png" `
+    -ModelId "mvtec-ad-capsule-320"
 ```
+
+The script fails if the backend returns a different model identifier, an unsupported decision, invalid heatmap metadata, invalid Base64 heatmap data, or an unsuccessful HTTP response.
+
+The registry catalog and complete analysis workflow have been verified through Docker Compose with explicit Capsule and VisA Cashew model selections. Bottle and VisA Candle were additionally verified through the same runtime registry during native integration testing.
 
 ## Documentation
 
@@ -237,18 +328,21 @@ powershell.exe `
 The current stack targets:
 
 - local Docker Desktop execution;
-- one configurable model artifact at a time;
+- a registry-controlled set of simultaneously loaded model artifacts;
+- dynamic model-catalog discovery through the backend;
+- optional explicit model selection per analysis;
+- a configured default model when no model identifier is supplied;
 - category-neutral backend and inference integration;
 - CPU inference;
 - a native Windows desktop client;
 - development and portfolio demonstration.
 
-The artifact can be selected through the local `.env` file. Capsule and generalized Bottle artifacts have been verified, but runtime model switching and simultaneous multi-model hosting are not implemented.
+The registry and all enabled artifacts are selected through the local `.env` file and mounted read-only. Free-form artifact upload from the desktop is intentionally outside the MVP.
 
 Automatic artifact downloads, GPU images, hosted deployment, authentication, TLS termination, container registry publication, and Kubernetes remain outside the current scope.
 
 ## License and Data
 
-This repository does not redistribute MVTec datasets, model artifacts, uploaded images, or generated heatmaps.
+This repository does not redistribute MVTec or VisA datasets, model registries, model artifacts, uploaded images, or generated heatmaps.
 
 Review the licenses and usage conditions of all upstream datasets, base images, packages, and application repositories before redistribution or commercial use.

@@ -8,15 +8,24 @@ It is intentionally concise. Stable scope belongs in `ProjectSpecification.md`, 
 
 ## Current Phase
 
-**Phase 2 - Generalized artifact compatibility verified**
+**Phase 3 - Multi-model integration verified locally**
 
 The Python inference service and ASP.NET Core backend can be built, started, connected, verified, and stopped through Docker Compose. The native WPF desktop client has also been verified against the containerized backend.
 
-The repository has been published publicly, validated through GitHub Actions, verified from a clean clone, and released as `v0.1.0`.
+The stack now mounts a read-only model registry and multiple artifact directories into one inference container. The backend exposes the available catalog, and callers can select a model for each analysis request without recreating the container.
 
-The stack now uses model and inference release `v0.4.0`. Its configurable read-only artifact mount has been verified with both the Capsule reference artifact and a generalized Bottle artifact created from a normal-image directory.
+The complete containerized workflow has been verified with Capsule and Cashew requests. The catalog exposed through the backend contained Capsule, Bottle, Candle, and Cashew. Native desktop verification additionally covered all four models.
 
-Normal and anomalous Bottle analyses, including PNG heatmaps, were verified through the complete containerized workflow. This confirms that the stack is not tied to one model category, although runtime model switching and simultaneous multi-model hosting are not yet implemented.
+The multi-model integration currently uses development revisions rather than new published component releases:
+
+| Component | Current integration source | Local image tag |
+| --- | --- | --- |
+| Python model and inference service | `main` | `multi-model-support` |
+| ASP.NET Core backend | `feat/multi-model-support` | `multi-model-support` |
+
+These temporary references must be replaced with immutable release tags after compatible releases are published.
+
+The stack repository was previously published publicly, validated through GitHub Actions, verified from a clean clone, and released as `v0.1.0`. The current multi-model changes are not yet included in a new stack release.
 
 ## Verified Environment
 
@@ -31,9 +40,9 @@ Normal and anomalous Bottle analyses, including PNG heatmaps, were verified thro
 - Docker Engine: `29.6.1`;
 - Git: `2.55.0.windows.3`.
 
-## Compatible Application Releases
+## Published Compatibility Baseline
 
-The verified stack baseline uses:
+The previously released single-model baseline used:
 
 | Component | Release |
 | --- | --- |
@@ -41,86 +50,84 @@ The verified stack baseline uses:
 | ASP.NET Core backend | `v0.2.0` |
 | WPF desktop client | `v0.2.0` |
 
-These versions provide the verified anomaly-analysis and heatmap contract used by the complete local workflow. Model release `v0.4.0` additionally supports artifacts trained from user-provided normal-image directories.
+Those releases provide the earlier single-model anomaly-analysis and heatmap workflow. They do not represent the complete multi-model integration described in the current working tree.
 
 ## Implemented
 
 ### Repository Foundation
 
-- separate stack repository created;
-- Git repository initialized with the `main` branch;
-- repository directory structure created;
-- `.gitignore` created for local configuration, artifacts, outputs, logs, editor files, and Compose overrides;
-- `.dockerignore` created to keep Git data, documentation, local configuration, generated output, and runtime artifacts out of image build contexts;
-- `runtime-artifacts/.gitkeep` added while runtime artifact contents remain ignored;
-- `.gitattributes` created with explicit text and binary handling;
-- `.editorconfig` created with baseline formatting rules;
-- `.env.example` created with portable local defaults;
-- local `.env` created and verified as ignored;
-- initial documentation set completed;
-- commit message guidelines completed;
-- initial commit `e4967c2` created with message `chore: initialize stack repository`;
-- GitHub repository created and published publicly;
-- public repository access verified without authentication;
-- README and documentation links verified in the public repository;
-- `origin` configured and `main` pushed successfully;
-- local and remote `main` branches verified as synchronized;
-- working tree verified as clean after publication;
+- separate stack repository created and published publicly;
+- repository structure, ignore rules, attributes, and formatting rules established;
+- portable `.env.example` and ignored local `.env` workflow established;
+- stack documentation set established;
+- GitHub Actions workflow implemented and previously verified;
 - initial stack release `v0.1.0` published;
-- release badge added to the README and verified.
+- runtime artifacts and machine-specific paths remain outside Git.
 
 ### Inference Container
 
 - multi-stage Python 3.12 Dockerfile created;
-- model repository source pinned to release `v0.4.0`;
+- model source revision configurable through `INFERENCE_SOURCE_REF`;
+- local image tag configurable independently through `INFERENCE_IMAGE_TAG`;
 - declared Python dependencies installed in an isolated virtual environment;
-- application package installed from the pinned source revision;
-- ResNet18 pretrained weights downloaded during the image build;
-- pretrained-weight cache copied into the runtime image;
-- runtime no longer requires internet access to start;
+- ResNet18 pretrained weights downloaded during image build and copied into the runtime image;
+- runtime starts without internet access;
 - CPU runtime dependency `libgomp1` installed;
 - service runs as an unprivileged user;
 - Uvicorn bound to container port `8000`;
-- container liveness health check configured;
-- inference image built successfully;
-- offline container startup verified with Docker networking disabled;
-- model artifact mounted and loaded successfully;
-- configurable artifact mount verified with the Capsule reference artifact;
-- generalized Bottle artifact mounted and loaded successfully;
-- model category and threshold obtained dynamically from the selected artifact;
-- model artifact mount verified as read-only;
-- inference health verified.
+- container health check configured;
+- inference image built successfully from the registry-capable model source;
+- model registry and artifact root mounted read-only;
+- registry loaded successfully at startup;
+- all enabled artifacts loaded successfully;
+- inference container became healthy with four registered models.
 
 ### Backend Container
 
 - multi-stage .NET 10 Dockerfile created;
-- backend repository source pinned to release `v0.2.0`;
+- backend source revision configurable through `BACKEND_SOURCE_REF`;
+- local image tag configurable independently through `BACKEND_IMAGE_TAG`;
 - API project restored and published in Release configuration;
 - final runtime image uses ASP.NET Core rather than the SDK image;
 - service runs as the unprivileged .NET `app` user;
 - backend bound to container port `8080`;
 - liveness health check configured;
-- backend image built successfully;
-- backend image size and runtime user inspected;
-- backend liveness verified.
+- multi-model backend image built successfully;
+- backend model-catalog path configured explicitly as `/api/v1/models`;
+- backend liveness and readiness verified.
 
 ### Docker Compose
 
-- Compose definition created for `inference` and `backend` services;
+- Compose definition configured for `inference` and `backend` services;
 - shared bridge network configured;
 - backend-to-inference communication configured through Compose DNS at `http://inference:8000`;
 - backend dependency configured to wait for healthy inference;
 - backend and inference host ports configured through `.env`;
-- model artifact path configured through `.env`;
-- model artifact mounted only into inference and as read-only;
-- local-only image pull policy configured to avoid Docker Hub lookup;
-- Compose configuration resolved and validated successfully;
-- both images built successfully through `docker compose build`;
-- Compose image assignments inspected successfully;
-- complete stack startup verified;
-- clean stack shutdown and recreation verified;
-- both containers verified as healthy after recreation;
+- source revisions and image tags configured independently;
+- model artifact root and registry container path configured through `.env`;
+- artifact root mounted only into inference and as read-only;
+- local-only image pull policy configured to avoid registry lookup;
+- resolved Compose configuration validated successfully;
+- both multi-model images built successfully through Docker Compose;
+- inference container became healthy and backend started successfully;
 - backend readiness verified through the internal inference dependency.
+
+### Model Catalog
+
+- registry-based startup verified with `models.json`;
+- public backend catalog verified through `GET /api/v1/models`;
+- configured default model verified as `mvtec-ad-capsule-320`;
+- the following four catalog entries verified through the containerized backend:
+
+```text
+mvtec-ad-capsule-320
+mvtec-ad-bottle-generalized-320
+visa-candle-generalized-q95-320
+visa-cashew-generalized-q95-320
+```
+
+- model identifiers, display names, categories, input sizes, and default state returned correctly;
+- model selection no longer requires changing `.env` or recreating the inference container.
 
 ### End-to-End Verification
 
@@ -128,29 +135,19 @@ These versions provide the verified anomaly-analysis and heatmap contract used b
 - backend liveness verified from the Windows host;
 - backend readiness verified from the Windows host;
 - complete image analysis verified through the containerized backend;
-- Capsule reference model identifier and category verified;
-- generalized Bottle model identifier and category verified;
-- normal Bottle image classified as normal through the complete containerized workflow;
-- anomalous Bottle image classified as anomalous through the complete containerized workflow;
-- Bottle-specific threshold obtained from the mounted artifact and verified;
+- explicit Capsule model selection verified;
+- explicit Cashew model selection verified;
+- returned model identifiers matched the requested identifiers;
 - anomaly score, threshold, and decision verified;
 - trace identifier verified;
-- Base64-encoded PNG heatmap verified with dimensions `320 x 320`;
-- native WPF desktop client verified against backend host port `8080`;
-- desktop health state, analysis response, and interactive heatmap overlay verified;
-- reusable PowerShell verification script created;
-- verification script syntax validated;
-- health-only script execution verified;
-- full script execution with a local test image verified;
-- temporary verification response cleanup implemented in the verification script;
-- repository cloned successfully into a separate clean-check directory;
-- `.env.example` copied successfully in the clean clone;
-- clean-clone Compose configuration validated;
-- model artifact copied into the clean clone with matching SHA-256 hashes;
-- copied artifact files verified as ignored by Git;
-- stack started successfully from the clean clone without rebuilding images;
-- clean-clone inference liveness and backend liveness and readiness verified;
-- complete anomaly analysis and PNG heatmap verified from the clean clone.
+- Base64-encoded PNG heatmaps verified with dimensions `320 x 320`;
+- reusable PowerShell verification script extended with optional `ModelId`;
+- conditional multipart `modelId` transmission implemented;
+- verification script checks that the response model matches the requested model;
+- health-only verification remains supported;
+- full script executions for Capsule and Cashew succeeded;
+- temporary verification response cleanup remains implemented;
+- native WPF desktop catalog loading and model selection verified separately with Capsule, Bottle, Candle, and Cashew.
 
 ### CI
 
@@ -159,9 +156,9 @@ These versions provide the verified anomaly-analysis and heatmap contract used b
 - PowerShell syntax validation included;
 - inference image build included;
 - backend image build included;
-- initial GitHub Actions execution completed successfully;
-- CI intentionally excludes prediction execution because model artifacts and MVTec images are not committed;
-- CI badge rendering verified in the public README.
+- previous single-model workflow completed successfully;
+- CI intentionally excludes prediction execution because model artifacts and dataset images are not committed;
+- current multi-model changes have not yet been committed and verified through GitHub Actions.
 
 ## Current Repository Shape
 
@@ -194,14 +191,19 @@ industrial-visual-anomaly-detection-stack/
 `-- README.md
 ```
 
-Local `.env`, model artifact contents, test images, and generated verification output remain untracked.
+Local `.env`, model registry and artifacts, test images, and generated verification output remain untracked.
 
 ## Not Yet Implemented or Verified
 
-- automated artifact acquisition;
-- distributable test image fixture;
-- simultaneous hosting of multiple model artifacts;
-- runtime model or category selection without recreating the inference container;
+- immutable multi-model release tags for the model and backend repositories;
+- a released desktop version containing multi-model selection;
+- a new stack release containing the multi-model configuration;
+- GitHub Actions verification of the current stack changes;
+- automated registry and artifact acquisition;
+- checksum verification for downloaded runtime artifacts;
+- distributable test-image and artifact fixtures;
+- dynamic registry reload without recreating the inference container;
+- lazy model loading or unloading after startup;
 - GPU-specific images;
 - hosted deployment;
 - production authentication and TLS termination;
@@ -210,39 +212,42 @@ Local `.env`, model artifact contents, test images, and generated verification o
 
 ## Current Decisions
 
-- The repository orchestrates existing released components instead of duplicating their source code.
+- The repository orchestrates existing component source revisions instead of duplicating source code.
 - The Python inference service and ASP.NET Core backend run as Linux containers.
 - The WPF desktop client remains a native Windows application.
 - Docker Compose coordinates the server-side services.
-- Application source revisions are pinned to published tags by default.
-- The verified source tags are model `v0.4.0` and backend `v0.2.0`.
-- The desktop compatibility baseline is `v0.2.0`.
+- Stable stack defaults should use published immutable tags.
+- Development branches may be used temporarily during an explicitly documented integration phase.
+- Source revisions and local image tags are configured separately.
 - ResNet18 pretrained weights are included in the inference image for offline startup.
-- The exported model artifact remains outside Git and container images.
-- The artifact is mounted read-only into the inference container.
-- The selected artifact is configured through the local `.env` file.
-- Changing the artifact requires recreating the inference container.
-- The stack remains category-neutral and obtains model identity, category, threshold, decision, and heatmap data through the stable service contracts.
+- The model registry and exported artifacts remain outside Git and container images.
+- The artifact root is mounted read-only into the inference container.
+- The local `.env` selects the artifact root, not an individual model artifact.
+- The inference registry is authoritative for available and default models.
+- Models are selected per analysis request without recreating the container.
+- The stack remains category-neutral and obtains model identity, category, threshold, decision, and heatmap data through service contracts.
 - The backend reaches the inference service through Compose service DNS.
 - The desktop communicates only with the backend host endpoint.
-- MVTec datasets and test images are not redistributed by this repository.
+- Dataset images are not redistributed by this repository.
 - Full prediction verification remains local until a distributable fixture strategy exists.
 
 ## Immediate Next Steps
 
-1. commit and push the model-release and verification-status update;
-2. verify the updated stack configuration through GitHub Actions;
-3. add a concise artifact-selection example to the local quick-start documentation;
-4. evaluate a legally distributable artifact and test-image strategy;
-5. evaluate automated artifact acquisition with checksum verification;
-6. consider runtime model selection only after the single-artifact workflow remains stable.
+1. complete and review the stack documentation update;
+2. run final Compose, whitespace, and repository-status checks;
+3. commit and push the stack multi-model integration;
+4. verify the pushed changes through GitHub Actions;
+5. publish compatible model, backend, and desktop releases in the appropriate order;
+6. replace temporary branch references with immutable release tags;
+7. repeat local stack verification using those release tags;
+8. publish a new stack release only after the released-component workflow is verified.
 
 ## Verification Commands
 
 Validate the resolved Compose configuration:
 
 ```powershell
-docker compose config
+docker compose config --quiet
 ```
 
 Build both images:
@@ -254,7 +259,7 @@ docker compose build
 Start the stack:
 
 ```powershell
-docker compose up --detach --no-build
+docker compose up --detach
 ```
 
 Inspect service state and image assignments:
@@ -262,6 +267,15 @@ Inspect service state and image assignments:
 ```powershell
 docker compose ps
 docker compose images
+```
+
+Retrieve the model catalog:
+
+```powershell
+Invoke-RestMethod `
+    -Uri http://127.0.0.1:8080/api/v1/models `
+    -Method Get |
+    ConvertTo-Json -Depth 5
 ```
 
 Run health-only verification:
@@ -273,14 +287,15 @@ powershell.exe `
     -File .\scripts\verify-local-stack.ps1
 ```
 
-Run complete verification with a local image:
+Run model-specific verification with a local image:
 
 ```powershell
 powershell.exe `
     -NoProfile `
     -ExecutionPolicy Bypass `
     -File .\scripts\verify-local-stack.ps1 `
-    -ImagePath "C:\path\to\test-image.png"
+    -ImagePath "C:\path\to\test-image.png" `
+    -ModelId "mvtec-ad-capsule-320"
 ```
 
 Stop the stack:
@@ -300,7 +315,7 @@ git status --short --untracked-files=all
 
 Only mark a stack capability as implemented after its configuration has been executed successfully in the documented environment.
 
-Container creation alone is not sufficient verification. Health, dependency communication, artifact loading, and the relevant HTTP behavior must be checked explicitly.
+Container creation alone is not sufficient verification. Health, dependency communication, registry and artifact loading, catalog behavior, model selection, and the relevant HTTP response must be checked explicitly.
 
 ## Documentation Update Rule
 
@@ -308,4 +323,4 @@ Update this document after a verified milestone or meaningful group of changes. 
 
 ## Last Updated
 
-2026-08-19
+2026-08-21

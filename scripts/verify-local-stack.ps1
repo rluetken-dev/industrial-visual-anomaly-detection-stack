@@ -4,7 +4,9 @@ param(
 
     [string]$InferenceBaseAddress = "http://127.0.0.1:8000",
 
-    [string]$ImagePath
+    [string]$ImagePath,
+
+    [string]$ModelId
 )
 
 Set-StrictMode -Version Latest
@@ -90,15 +92,24 @@ $responsePath = [System.IO.Path]::GetTempFileName()
 try {
     Write-Host "Running backend analysis..."
 
-    & curl.exe `
-        --max-time 60 `
-        --silent `
-        --show-error `
-        --fail-with-body `
-        -X POST `
-        "$($BackendBaseAddress.TrimEnd('/'))/api/v1/analyses" `
-        -F "image=@$resolvedImagePath;type=$contentType" `
-        --output $responsePath
+    $curlArguments = @(
+        "--max-time", "60",
+        "--silent",
+        "--show-error",
+        "--fail-with-body",
+        "-X", "POST",
+        "$($BackendBaseAddress.TrimEnd('/'))/api/v1/analyses",
+        "-F", "image=@$resolvedImagePath;type=$contentType",
+        "--output", $responsePath
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($ModelId)) {
+        $curlArguments += @(
+            "-F", "modelId=$ModelId"
+        )
+    }
+
+    & curl.exe @curlArguments
 
     if ($LASTEXITCODE -ne 0) {
         throw "The analysis request failed with curl exit code $LASTEXITCODE."
@@ -111,6 +122,13 @@ try {
 
     if ([string]::IsNullOrWhiteSpace($response.model.id)) {
         throw "The analysis response does not contain a model identifier."
+    }
+
+    if (
+        -not [string]::IsNullOrWhiteSpace($ModelId) `
+        -and $response.model.id -ne $ModelId
+    ) {
+        throw "Expected model '$ModelId', but received '$($response.model.id)'."
     }
 
     if ([string]::IsNullOrWhiteSpace($response.model.category)) {

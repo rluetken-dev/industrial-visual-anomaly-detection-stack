@@ -10,7 +10,7 @@ Implementation progress belongs in `DevelopmentStatus.md`. Container and depende
 
 The project provides a reproducible Docker Compose environment for running the server-side components of the Industrial Visual Anomaly Detection system.
 
-It allows a user to start the published Python inference service and ASP.NET Core backend together without manually preparing separate local source checkouts for those services.
+It allows a user to start the Python inference service and ASP.NET Core backend together without manually preparing separate local source checkouts for those services. Multiple compatible model artifacts can be made available through one external registry and selected per analysis request.
 
 The Windows WPF desktop application remains a native host application and connects to the containerized backend.
 
@@ -29,31 +29,36 @@ Python inference container
         |
         | Read-only mounted volume
         v
-Locally exported model artifact
+Local model registry and exported artifacts
 ```
 
 ## Functional Scope
 
-The initial stack shall provide:
+The stack shall provide:
 
 - one Docker Compose definition;
 - one inference-service container;
 - one backend container;
-- pinned source versions for reproducible image builds;
+- explicit source revisions for reproducible image builds;
+- independently configurable local image tags;
 - an internal Docker network between backend and inference service;
-- a read-only model-artifact volume mount;
+- a read-only volume mount containing a model registry and its artifact directories;
+- simultaneous startup loading of multiple enabled model artifacts;
+- discovery of available models through the backend;
+- model selection per analysis request;
+- a configured default model for compatible clients that omit a model identifier;
 - backend and inference health checks;
-- configurable ports and artifact paths through environment variables;
+- configurable ports and runtime paths through environment variables;
 - an `.env.example` without secrets or machine-specific values;
 - documented build, start, stop, inspection, and cleanup commands;
-- a verification script for container health and one analysis request;
+- a verification script for container health and an optional model-specific analysis request;
 - instructions for connecting the native WPF desktop application.
 
 ## Repository Ownership
 
 This repository owns:
 
-- Dockerfiles used to build the published inference and backend source versions;
+- Dockerfiles used to build the inference and backend source revisions;
 - Docker Compose orchestration;
 - local stack configuration examples;
 - startup and verification scripts;
@@ -63,6 +68,7 @@ This repository owns:
 It does not own:
 
 - model development, training, evaluation, or artifact export;
+- the model-registry content;
 - Python service implementation;
 - ASP.NET Core backend implementation;
 - WPF desktop implementation;
@@ -73,39 +79,61 @@ Changes to application behavior remain in the corresponding application reposito
 
 ## Source Version Strategy
 
-Container builds shall use explicit published repository tags rather than an unpinned default branch.
+Released stack defaults shall use explicit immutable repository tags rather than unpinned branches.
 
-The verified compatible versions are:
+Source revisions shall be configurable as Docker build arguments. Local image tags shall be configured separately so that the source reference and resulting image name have distinct responsibilities.
 
-- model and inference service: `v0.4.0`;
-- backend: `v0.2.0`;
-- desktop client: `v0.2.0`.
-
-Source versions shall be configurable as Docker build arguments while retaining verified defaults.
+Development branches may be used temporarily for local integration before compatible component releases exist. Such temporary references shall be documented as integration values and replaced with immutable tags before publishing a stable stack release.
 
 The orchestration repository shall not copy application source code into its own Git history.
 
-## Model Artifact Boundary
+## Model Registry and Artifact Boundary
 
-The inference container requires an exported model artifact containing metadata and feature memory.
+The inference container requires a model registry and the exported artifacts referenced by its enabled entries.
 
-The artifact:
+The registry shall identify at least:
 
-- shall remain outside Git history;
+- its schema version;
+- one default model identifier;
+- the available model entries;
+- each model identifier and display name;
+- each model's artifact directory;
+- whether an entry is enabled.
+
+The registry and artifacts:
+
+- shall remain outside stack Git history;
 - shall not be embedded in the container image;
-- shall be mounted into the container as a read-only volume;
-- shall be created by following the model repository instructions;
-- shall remain subject to the dataset and model dependency license conditions from which it was produced.
+- shall be mounted into the inference container through one read-only artifact root;
+- shall be created or assembled by following the model repository instructions;
+- shall remain subject to the license conditions of their datasets and model dependencies.
 
-The committed default artifact location targets `mvtec-ad-capsule-320`. The stack shall accept one compatible artifact at a time through configurable host and container paths.
+The inference service shall validate the registry and enabled artifacts during startup. Missing, invalid, duplicated, or incompatible entries shall cause a clear startup or health failure rather than a silent fallback.
 
-Compatibility has been verified with both the Capsule reference artifact and `mvtec-ad-bottle-generalized-320`. The orchestration layer shall remain category-neutral and shall not hard-code model identity, category, threshold, decision, or heatmap values.
+The registry shall be the authoritative source for available and default models. The stack, backend, and desktop shall not require separate hard-coded model lists.
+
+The orchestration layer shall remain category-neutral and shall not hard-code model identity, category, input size, threshold, decision, or heatmap values.
+
+## Multi-Model Behavior
+
+- Multiple enabled artifacts shall be loadable by one inference-service instance.
+- Each enabled model shall have a stable unique identifier.
+- One enabled model shall be designated as the default.
+- The inference service shall expose its validated catalog to the backend.
+- The backend shall expose an application-facing model catalog.
+- An analysis request may include a model identifier.
+- The selected model identifier shall flow from the client through the backend to inference.
+- The response shall identify the model that produced the result.
+- An unknown, disabled, or invalid model identifier shall produce a clear failure.
+- Switching between already loaded models shall not require modifying `.env` or recreating containers.
+
+Dynamic registry reload, lazy model loading, and model unloading after service startup are outside the current required scope.
 
 ## Dataset Boundary
 
-This repository shall not distribute MVTec AD images or other third-party datasets.
+This repository shall not distribute MVTec AD, VisA, or other third-party dataset images.
 
-Users who want to reproduce artifact export shall download the dataset from its official source and comply with its license. Runtime use of an already exported local artifact does not require mounting the complete dataset into the containers.
+Users who reproduce artifact export shall obtain datasets from their official sources and comply with their licenses. Runtime use of already exported local artifacts does not require mounting complete datasets into the containers.
 
 ## Desktop Boundary
 
@@ -115,7 +143,9 @@ The stack documentation shall explain how to:
 
 - run the desktop application natively on Windows;
 - configure its backend address for the containerized HTTP endpoint;
-- verify backend liveness and inference readiness before analysis.
+- verify backend liveness and inference readiness before analysis;
+- retrieve the available model catalog through the backend;
+- select a model and submit an analysis request.
 
 Containerization of WPF, Windows containers, and graphical container forwarding are outside scope.
 
@@ -127,26 +157,29 @@ The committed `.env.example` shall contain safe defaults and documentation-frien
 
 Configuration shall cover at least:
 
+- backend and inference source revisions;
+- backend and inference local image tags;
 - backend host port;
 - inference diagnostic host port;
-- local model-artifact host and container paths;
-- model and backend source tags;
+- model-artifact host and container paths;
+- model-registry container path;
 - inference memory chunk size;
 - backend inference-request timeout.
 
-Required values shall fail clearly when absent or invalid.
+Required values shall fail clearly when absent or invalid. Host-specific absolute paths shall remain in the ignored local `.env`, not in committed defaults.
 
 ## Networking Requirements
 
 - Backend-to-inference communication shall use the Docker service name rather than `localhost`.
 - Only ports required for local verification or desktop access shall be published to the host.
-- The inference service may be published for diagnostics but backend communication shall remain on the internal network.
-- The initial local container stack may use HTTP; production TLS termination is outside scope.
+- The inference service may be published for diagnostics, but backend communication shall remain on the internal network.
+- The local container stack may use HTTP; production TLS termination is outside scope.
+- The desktop shall communicate with the public backend boundary rather than calling inference directly.
 
 ## Security and Privacy Requirements
 
 - Containers shall not contain credentials or private hostnames.
-- Model artifacts shall be mounted read-only.
+- The model registry and artifacts shall be mounted read-only.
 - Dataset images, uploaded images, response payloads, and generated heatmaps shall not be committed.
 - Container logs shall not expose image bytes, Base64 heatmap payloads, or secrets.
 - Images should run as non-root users where practical.
@@ -155,50 +188,69 @@ Required values shall fail clearly when absent or invalid.
 
 ## Reproducibility Requirements
 
-- Application source references shall use explicit tags.
+- Stable application source references shall use immutable tags.
+- Temporary integration references shall be explicitly documented and shall not be presented as stable releases.
 - Docker Compose configuration shall be valid without undocumented local edits.
 - A new user shall be able to copy `.env.example` to `.env` and identify every required local value.
 - Build and startup commands shall be documented from the repository root.
-- Health checks shall provide a deterministic readiness signal.
+- Health checks shall provide deterministic readiness signals.
 - The stack shall be verifiable without installing Python or the .NET SDK on the host.
 - Required pretrained backbone weights shall be included during the image build so that inference startup does not require internet access.
+- The local model registry and artifact layout shall be documented sufficiently for an operator to assemble them without modifying Compose files.
 
-Docker Desktop, Docker Compose, the native desktop prerequisites, and the external model artifact remain required.
+Docker Desktop, Docker Compose, native desktop prerequisites, and compatible external model artifacts remain required.
 
 ## Quality Requirements
 
-- `docker compose config` shall succeed.
+- `docker compose config --quiet` shall succeed.
 - Dockerfiles shall build successfully from the documented commands.
-- Both containers shall reach healthy or ready states.
+- The inference container shall become healthy after validating and loading the configured registry.
 - The backend shall report readiness only when inference is available.
-- One normal and one anomalous image request shall be verifiable when the user supplies licensed local test images.
+- The backend model-catalog endpoint shall return the configured default and enabled models.
+- A model-specific analysis shall return the requested model identifier.
+- Normal and anomalous image requests shall be verifiable when the user supplies licensed local test images.
+- Returned analysis data shall include decision metadata and a valid heatmap.
 - Stack scripts shall fail with actionable messages.
-- CI shall validate repository formatting and Docker Compose configuration without requiring a model artifact.
+- The verification script shall support health-only and model-specific analysis modes.
+- CI shall validate repository formatting and Docker Compose configuration without requiring model artifacts.
 
-## Initial Acceptance Criteria
+## Multi-Model Acceptance Criteria
 
-The initial orchestration milestone is complete when:
+The multi-model orchestration milestone is complete when:
 
-- both Dockerfiles build pinned compatible application releases;
+- both Dockerfiles build compatible registry-capable application revisions;
 - Docker Compose starts backend and inference services;
-- the local artifact is mounted read-only;
-- inference liveness returns a successful response;
+- the registry and all enabled artifacts are mounted read-only;
+- inference validates the registry and reaches a healthy state;
 - backend liveness and readiness return successful responses;
-- a real analysis request returns decision metadata and a heatmap;
-- the native desktop connects to the containerized backend;
-- normal and anomalous analyses are verified through the complete stack;
-- setup and troubleshooting documentation are complete;
+- the backend catalog returns the configured models and default identifier;
+- at least two distinct model identifiers are selected successfully without recreating containers;
+- each analysis response identifies the requested model;
+- real analysis requests return scores, thresholds, decisions, metadata, and valid heatmaps;
+- the native desktop retrieves the catalog and performs model-specific analyses through the containerized backend;
+- setup and troubleshooting documentation describe the registry-based workflow;
 - automated configuration validation succeeds;
-- no dataset, artifact, secret, or runtime output is tracked by Git.
+- no dataset, registry, artifact, secret, or runtime output is tracked by Git.
+
+## Release Acceptance Criteria
+
+A stable multi-model stack release additionally requires:
+
+- compatible immutable releases of the model, backend, and desktop components;
+- stack defaults updated from temporary integration branches to those release tags;
+- complete local verification repeated with the released component revisions;
+- GitHub Actions verification of the committed stack configuration;
+- documentation and compatibility references aligned with the released versions.
 
 ## Deferred Scope
 
 The following capabilities remain deferred:
 
-- multiple simultaneously loaded model artifacts;
-- runtime model or category selection without recreating the inference container;
-- artifact download or publication;
+- dynamic registry reload without recreating the inference container;
+- lazy model loading or unloading after startup;
+- automatic artifact download or publication;
 - dataset download automation;
+- distributable dataset-based test fixtures;
 - container registries and prebuilt public images;
 - WPF containerization;
 - Kubernetes;
@@ -212,4 +264,4 @@ Documentation shall be updated after verified stack milestones or compatibility 
 
 ## Last Updated
 
-2026-08-19
+2026-08-21
